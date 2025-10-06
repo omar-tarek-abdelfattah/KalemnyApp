@@ -7,7 +7,8 @@
     "node": "22.15.0"
   },
   "scripts": {
-    "start:dev": "node --watch src/index.js"
+    "init:dev": "node --watch src/index.js",
+    "start": "node --watch src/index.js"
   },
   "keywords": [],
   "author": "",
@@ -33,5 +34,8 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.5",
     "pm2": "^6.0.8"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10"
   }
 }
