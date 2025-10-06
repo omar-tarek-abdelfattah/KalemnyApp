@@ -53,7 +53,7 @@ const bootstrap = async () => {
     // cors
     app.use('/auth', authLimiter)
     app.use('/users', userLimiter)
-    app.use(morgan('dev'))
+    app.use(morgan('common'))
     app.use(helmet())
     app.use(cors())
     app.use('/uploads', express.static(path.resolve('./src/uploads')))
