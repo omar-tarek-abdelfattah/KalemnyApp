@@ -8,7 +8,8 @@
   },
   "scripts": {
     "init:dev": "node --watch src/index.js",
-    "start": "node --watch src/index.js"
+    "start": "node --watch src/index.js",
+    "start:prod": "node --watch src/index.js"
   },
   "keywords": [],
   "author": "",
