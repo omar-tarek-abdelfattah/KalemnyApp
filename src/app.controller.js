@@ -30,6 +30,8 @@ const bootstrap = async () => {
     const app = express()
     const port = process.env.PORT || 5000
 
+    app.set("trust proxy", 1)
+
     cron.schedule("0 0 * * *", async () => {
         try {
             const tokens = await deleteAllTokens()
