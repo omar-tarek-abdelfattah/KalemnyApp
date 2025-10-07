@@ -243,6 +243,9 @@ export const confirmEmail = asyncHandler(
             model: UserModel,
             filter: { email, confirmEmail: { $exists: false }, confirmEmailOtp: { $exists: true } }
         })
+        console.log(user);
+
+        if (!user) return next(new Error('Invalid account or already verified', { cause: 404 }))
 
         if (Date.now() - user.confirmEmailOtp.expireAt > 120000) {
             return next(new Error('otp expired'))
@@ -251,7 +254,6 @@ export const confirmEmail = asyncHandler(
 
 
 
-        if (!user) return next(new Error('Invalid account or already verified', { cause: 404 }))
 
         if (!await compareHash({ plainText: otp, hashValue: user.confirmEmailOtp.value })) return next(new Error('invalid otp'))
 
@@ -262,7 +264,9 @@ export const confirmEmail = asyncHandler(
                 $unset: { confirmEmailOtp: true }
             }
         })
-        return updatedUser.matchedCount ? successResponse({ res, message: "email confirmed" }) : next(new Error("fail to confirm user email"))
+
+        const credentials = await getCredentials({ user })
+        return updatedUser.matchedCount ? successResponse({ res, message: "email confirmed", data: { credentials } }) : next(new Error("fail to confirm user email"))
     }
 
 )
