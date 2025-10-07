@@ -1,5 +1,5 @@
 import UserModel, { providerEnum, roleEnum } from "../../DB/models/User.model.js"
-import { asyncHandler, successResponse } from "../../utils/response.util.js"
+import { AppError, asyncHandler, errorEnum, successResponse } from "../../utils/response.util.js"
 import * as DBService from '../../DB/db.service.js'
 import { compareHash, generateHash, generateHashedOtp, generateOtp } from "../../utils/security/hash.security.js"
 import { generateCrypt } from "../../utils/security/encrypt.security.js"
@@ -85,7 +85,7 @@ export const signup = asyncHandler(
         const { fullName, email, password, phone, gender } = req.body
 
 
-        if (await DBService.findOne({ model: UserModel, filter: { email } })) return next(new Error("email already exists", { cause: 409 }))
+        if (await DBService.findOne({ model: UserModel, filter: { email } })) return next(new AppError("email already exists", { cause: 409 }, errorEnum.EmailExists))
 
         const hashPassword = await generateHash({ plainText: password, saltRound: 4 })
         const encPhone = await generateCrypt({ plaintext: phone })
@@ -107,6 +107,9 @@ export const signup = asyncHandler(
             }]
         })
         emailEvent.emit("confirm-email", { to: email, otp })
+        if (!user) {
+            next(new AppError("Failed to create resource", { cause: 400 }, 'FAIL'))
+        }
 
 
         return successResponse({ res, data: { user }, status: 201, message: 'user created successfully' })
@@ -124,10 +127,10 @@ export const login = asyncHandler(
             select: ''
         })
 
-        if (!user) return next(new Error("invalid email or password", { cause: 404 }))
+        if (!user) return next(new AppError("invalid email or password", { cause: 404 }, errorEnum.NotFoundException))
 
         if (!user.confirmEmail) {
-            return next(new Error('please verify account first'))
+            return next(new AppError('please verify account first', undefined, errorEnum.UnConfirmedAccount))
         }
         if (user.deletedAt) {
             return next(new Error('Account is deleted'))
@@ -155,10 +158,10 @@ export const verifyForgetCode = asyncHandler(
             // data: { forgotCode: hashOtp }
         })
         if (!user) {
-            return next(new Error("invalid account", { cause: 404 }))
+            return next(new AppError("invalid account", { cause: 404 }, errorEnum.NotFoundException))
         }
         if (!await compareHash({ plainText: otp, hashValue: user.forgotCode })) {
-            return next(new Error("invalid otp", { cause: 400 }))
+            return next(new AppError("invalid otp", { cause: 400 }, errorEnum.InvalidOtp))
         }
 
 
@@ -184,10 +187,10 @@ export const resetPassword = asyncHandler(
             // data: { forgotCode: hashOtp }
         })
         if (!user) {
-            return next(new Error("invalid account", { cause: 404 }))
+            return next(new AppError("invalid account", { cause: 404 }, errorEnum.NotFoundException))
         }
         if (!await compareHash({ plainText: otp, hashValue: user.forgotCode })) {
-            return next(new Error("invalid otp", { cause: 400 }))
+            return next(new AppError("invalid otp", { cause: 400 }, errorEnum.InvalidOtp))
         }
 
         const hashNewPassword = await generateHash({ plainText: password })
@@ -222,7 +225,7 @@ export const sendForgotPassword = asyncHandler(
         })
 
         if (!user) {
-            return next(new Error("invalid account", { cause: 404 }))
+            return next(new AppError("invalid account", { cause: 404 }, errorEnum.NotFoundException))
         }
 
         emailEvent.emit("forgot-password-otp", {
@@ -245,17 +248,17 @@ export const confirmEmail = asyncHandler(
         })
         console.log(user);
 
-        if (!user) return next(new Error('Invalid account or already verified', { cause: 404 }))
+        if (!user) return next(new AppError('Invalid account or already verified', { cause: 404 }, errorEnum.NotFoundException))
 
         if (Date.now() - user.confirmEmailOtp.expireAt > 120000) {
-            return next(new Error('otp expired'))
+            return next(new AppError('otp expired', { cause: 400 }, errorEnum.OtpExpired))
         }
 
 
 
 
 
-        if (!await compareHash({ plainText: otp, hashValue: user.confirmEmailOtp.value })) return next(new Error('invalid otp'))
+        if (!await compareHash({ plainText: otp, hashValue: user.confirmEmailOtp.value })) return next(new AppError('invalid otp', undefined, errorEnum.InvalidOtp))
 
         const updatedUser = await DBService.updateOne({
             model: UserModel,
@@ -277,11 +280,11 @@ export const resendOtp = asyncHandler(
         const hashedOtp = await generateHashedOtp({ otp })
         let existing = await DBService.findOne({ model: UserModel, filter: { email, confirmEmailOtp: { $exists: true } } })
         if (!existing) {
-            return next(new Error('user not found', { cause: 404 }))
+            return next(new AppError('user not found', { cause: 404 } , errorEnum.NotFoundException))
         }
 
         if (existing.confirmEmailOtp && existing.confirmEmailOtp.banUntil > new Date()) {
-            return next(new Error(`you are temporarily banned from requesting a new Otp`))
+            return next(new AppError(`you are temporarily banned from requesting a new Otp` , undefined , errorEnum.TempBlock))
         }
 
         if (existing.confirmEmailOtp.banUntil && existing.confirmEmailOtp.banUntil < new Date()) {
