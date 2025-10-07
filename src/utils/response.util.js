@@ -26,9 +26,10 @@ export const errorEnum = {
 }
 
 export class AppError extends Error {
-    constructor(message, cause, code) {
-        super(message, cause)
+    constructor(message, statusCode, code) {
+        super(message)
         this.code = code || "INTERNAL_ERR"
+        this.statusCode = statusCode
 
         Error.captureStackTrace(this, this.constructor)
     }
